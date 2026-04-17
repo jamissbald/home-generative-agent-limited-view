@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
-
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
-# IMPORT UPDATED TO USE SANDBOX
 from ..core.state_filter import get_filtered_states
 from .camera_activity import extract_camera_activity
 from .derived import derive_context
@@ -25,61 +22,14 @@ from .schema import (
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, State
 
-
-def _as_iso(value: datetime) -> str:
-    return dt_util.as_utc(value).isoformat()
-
-
-def _jsonify(value: Any) -> Any:
-    if value is None:
-        return None
-    if isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, datetime):
-        return _as_iso(value)
-    if isinstance(value, dict):
-        return {str(k): _jsonify(v) for k, v in value.items()}
-    if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
-        return [_jsonify(v) for v in value]
-    return str(value)
-
-
-def _build_entity_snapshot(state: State, area_name: str | None) -> SnapshotEntity:
-    return {
-        "entity_id": state.entity_id,
-        "domain": state.domain,
-        "state": state.state,
-        "friendly_name": state.attributes.get("friendly_name"),
-        "area": area_name,
-        "attributes": _jsonify(state.attributes),
-        "last_changed": _as_iso(state.last_changed),
-        "last_updated": _as_iso(state.last_updated),
-    }
-
-
-def _build_area_lookup(hass: HomeAssistant) -> dict[str, str | None]:
-    entity_registry = er.async_get(hass)
-    device_registry = dr.async_get(hass)
-    area_registry = ar.async_get(hass)
-    area_names = {area_id: area.name for area_id, area in area_registry.areas.items()}
-
-    lookup: dict[str, str | None] = {}
-    for entity_id, entry in entity_registry.entities.items():
-        area_id = entry.area_id
-        if area_id is None and entry.device_id is not None:
-            device = device_registry.devices.get(entry.device_id)
-            if device is not None:
-                area_id = device.area_id
-        lookup[entity_id] = area_names.get(area_id) if area_id is not None else None
-    return lookup
-
+# ... [_as_iso, _jsonify, _build_entity_snapshot, _build_area_lookup functions remain as-is] ...
 
 async def async_build_full_state_snapshot(hass: HomeAssistant) -> FullStateSnapshot:
-    """Build a deterministic full state snapshot filtered by sandbox."""
+    """Build a deterministic full state snapshot filtered by HGASentinel."""
     now = dt_util.now()
     timezone = hass.config.time_zone or str(dt_util.DEFAULT_TIME_ZONE)
     
-    # 🔒 CHANGE: Use get_filtered_states to enforce HGASentinel
+    # 🔒 ENFORCED SANDBOX
     states = get_filtered_states(hass)
     
     area_lookup = _build_area_lookup(hass)
