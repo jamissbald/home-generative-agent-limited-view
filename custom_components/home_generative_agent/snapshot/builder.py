@@ -11,6 +11,8 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
+# IMPORT UPDATED TO USE SANDBOX
+from ..core.state_filter import get_filtered_states
 from .camera_activity import extract_camera_activity
 from .derived import derive_context
 from .schema import (
@@ -63,8 +65,6 @@ def _build_area_lookup(hass: HomeAssistant) -> dict[str, str | None]:
 
     lookup: dict[str, str | None] = {}
     for entity_id, entry in entity_registry.entities.items():
-        # Entity-level area takes precedence; fall back to the parent device's
-        # area, which is how areas are most commonly assigned in HA.
         area_id = entry.area_id
         if area_id is None and entry.device_id is not None:
             device = device_registry.devices.get(entry.device_id)
@@ -75,10 +75,13 @@ def _build_area_lookup(hass: HomeAssistant) -> dict[str, str | None]:
 
 
 async def async_build_full_state_snapshot(hass: HomeAssistant) -> FullStateSnapshot:
-    """Build a deterministic full state snapshot."""
+    """Build a deterministic full state snapshot filtered by sandbox."""
     now = dt_util.now()
     timezone = hass.config.time_zone or str(dt_util.DEFAULT_TIME_ZONE)
-    states = hass.states.async_all()
+    
+    # 🔒 CHANGE: Use get_filtered_states to enforce HGASentinel
+    states = get_filtered_states(hass)
+    
     area_lookup = _build_area_lookup(hass)
     image_states = hass.states.async_all("image")
     image_by_camera_id: dict[str, State] = {}
